@@ -84,15 +84,31 @@ function keepWithinBounds(boid) {
 
   if (boid.x < margin) {
     boid.dx += turnFactorScaled;
+    if (boid.x < 0) {
+      boid.x = 0;
+      boid.dx = 0;
+    }
   }
   if (boid.x > width - margin) {
     boid.dx -= turnFactorScaled
+    if (boid.x > width) {
+      boid.x = width;
+      boid.dx = 0;
+    }
   }
   if (boid.y < margin) {
     boid.dy += turnFactorScaled;
+    if (boid.y < 0) {
+      boid.y = 0;
+      boid.dy = 0;
+    }
   }
   if (boid.y > height - margin) {
     boid.dy -= turnFactorScaled;
+    if (boid.y > height) {
+      boid.y = height;
+      boid.dy = 0;
+    }
   }
 }
 
