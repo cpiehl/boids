@@ -1,8 +1,13 @@
+
 // Size of canvas. These get updated to fill the whole browser.
 let width = 150;
 let height = 150;
 
-const numBoids = 100;
+let lastTimestamp = 0;
+let timestampCount = 0;
+let timestampCountMax = 10; // Average over this many frames
+
+const numBoids = 500;
 const visualRange = 75;
 
 var boids = [];
@@ -22,7 +27,7 @@ function initBoids() {
 function distance(boid1, boid2) {
   return Math.sqrt(
     (boid1.x - boid2.x) * (boid1.x - boid2.x) +
-      (boid1.y - boid2.y) * (boid1.y - boid2.y),
+    (boid1.y - boid2.y) * (boid1.y - boid2.y)
   );
 }
 
@@ -177,7 +182,10 @@ function drawBoid(ctx, boid) {
 }
 
 // Main animation loop
-function animationLoop() {
+function animationLoop(timestamp) {
+  var duration = timestamp - lastTimestamp;
+  lastTimestamp = timestamp;
+
   // Update each boid
   for (let boid of boids) {
     // Update the velocities according to each rule
@@ -200,6 +208,10 @@ function animationLoop() {
   for (let boid of boids) {
     drawBoid(ctx, boid);
   }
+  ctx.fillStyle = "white";
+  ctx.font = "30px Consolas";
+  ctx.fillText(`FPS: ${(1000/duration).toFixed(2)}`, 10, 50);
+  // ctx.fillText(`AVG: ${averageFPS().toFixed(2)}`, 10, 100);
 
   // Schedule the next frame
   window.requestAnimationFrame(animationLoop);
