@@ -6,6 +6,8 @@ let height = 150;
 const DRAW_TRAIL = false;
 
 let lastTimestamp = 0;
+let targetFPS = 60;
+let frameScale = 1; // scales constants to a standard FPS
 
 const numBoids = 500;
 const numBigBoids = 1;
@@ -17,7 +19,7 @@ const minDistance2 = 400; // The distance to stay away from other boids squared
 const avoidFactor = 0.02; // Adjust velocity by this %
 const predatorDistance2 = 10000; // The distance to stay away from predator boids squared
 const matchingFactor = 0.05; // Adjust by this % of average velocity
-const speedLimit = 15;
+const speedLimit = 10;
 
 const margin = 100; // The distance from edge of screen to turn around
 const turnFactor = 0.5; // How fast to turn around
@@ -78,24 +80,26 @@ function sizeCanvas() {
 // Constrain a boid to within the window. If it gets too close to an edge,
 // nudge it back in and reverse its direction.
 function keepWithinBounds(boid) {
+  const turnFactorScaled = turnFactor * frameScale;
 
   if (boid.x < margin) {
-    boid.dx += turnFactor;
+    boid.dx += turnFactorScaled;
   }
   if (boid.x > width - margin) {
-    boid.dx -= turnFactor
+    boid.dx -= turnFactorScaled
   }
   if (boid.y < margin) {
-    boid.dy += turnFactor;
+    boid.dy += turnFactorScaled;
   }
   if (boid.y > height - margin) {
-    boid.dy -= turnFactor;
+    boid.dy -= turnFactorScaled;
   }
 }
 
 // Find the center of mass of the other boids and adjust velocity slightly to
 // point towards the center of mass.
 function flyTowardsCenter(boid, range2) {
+  const centeringFactorScaled = centeringFactor * frameScale;
 
   let centerX = 0;
   let centerY = 0;
@@ -113,13 +117,14 @@ function flyTowardsCenter(boid, range2) {
     centerX = centerX / numNeighbors;
     centerY = centerY / numNeighbors;
 
-    boid.dx += (centerX - boid.x) * centeringFactor;
-    boid.dy += (centerY - boid.y) * centeringFactor;
+    boid.dx += (centerX - boid.x) * centeringFactorScaled;
+    boid.dy += (centerY - boid.y) * centeringFactorScaled;
   }
 }
 
 // Move away from other boids that are too close to avoid colliding
 function avoidOthers(boid) {
+  const avoidFactorScaled = avoidFactor * frameScale;
   let moveX = 0;
   let moveY = 0;
   for (let otherBoid of boids) {
@@ -131,11 +136,12 @@ function avoidOthers(boid) {
     }
   }
 
-  boid.dx += moveX * avoidFactor;
-  boid.dy += moveY * avoidFactor;
+  boid.dx += moveX * avoidFactorScaled;
+  boid.dy += moveY * avoidFactorScaled;
 }
 
 function avoidPredator(boid) {
+  const avoidFactorScaled = avoidFactor * frameScale;
   let moveX = 0;
   let moveY = 0;
   for (let bigboid of bigboids) {
@@ -145,14 +151,14 @@ function avoidPredator(boid) {
     }
   }
 
-  boid.dx += moveX * avoidFactor;
-  boid.dy += moveY * avoidFactor;
+  boid.dx += moveX * avoidFactorScaled;
+  boid.dy += moveY * avoidFactorScaled;
 }
 
 // Find the average velocity (speed and direction) of the other boids and
 // adjust velocity slightly to match.
 function matchVelocity(boid) {
-
+  const matchingFactorScaled = matchingFactor * frameScale;
   let avgDX = 0;
   let avgDY = 0;
   let numNeighbors = 0;
@@ -169,19 +175,19 @@ function matchVelocity(boid) {
     avgDX = avgDX / numNeighbors;
     avgDY = avgDY / numNeighbors;
 
-    boid.dx += (avgDX - boid.dx) * matchingFactor;
-    boid.dy += (avgDY - boid.dy) * matchingFactor;
+    boid.dx += (avgDX - boid.dx) * matchingFactorScaled;
+    boid.dy += (avgDY - boid.dy) * matchingFactorScaled;
   }
 }
 
 // Speed will naturally vary in flocking behavior, but real animals can't go
 // arbitrarily fast.
 function limitSpeed(boid) {
-
+  const speedLimitScaled = speedLimit * frameScale;
   const speed = Math.sqrt(boid.dx * boid.dx + boid.dy * boid.dy);
-  if (speed > speedLimit) {
-    boid.dx = (boid.dx / speed) * speedLimit;
-    boid.dy = (boid.dy / speed) * speedLimit;
+  if (speed > speedLimitScaled) {
+    boid.dx = (boid.dx / speed) * speedLimitScaled;
+    boid.dy = (boid.dy / speed) * speedLimitScaled;
   }
 }
 
@@ -215,6 +221,7 @@ function drawBoid(ctx, boid, color) {
 function animationLoop(timestamp) {
   var duration = timestamp - lastTimestamp;
   lastTimestamp = timestamp;
+  frameScale = duration / (1000.0 / targetFPS);
 
   // Clear the canvas and redraw all the boids in their current positions
   const ctx = document.getElementById("boids").getContext("2d");
@@ -255,9 +262,20 @@ function animationLoop(timestamp) {
     drawBoid(ctx, bigboid, "red");
   }
 
+  let fps = (1000/duration);
+  let decimals = 2;
+  if (fps > 100) {
+    decimals = 0;
+  } else if (fps > 10) {
+    decimals = 1;
+  }
+
   ctx.fillStyle = "white";
   ctx.font = "30px Consolas";
-  ctx.fillText(`FPS: ${(1000/duration).toFixed(2)}`, 10, 50);
+  ctx.fillText(`FPS: ${fps.toFixed(decimals)}`, 10, 50);
+  // ctx.fillStyle = "white";
+  // ctx.font = "30px Consolas";
+  // ctx.fillText(`SPD: ${(speedLimit * frameScale).toFixed(2)}`, 10, 100);
 
   // Schedule the next frame
   window.requestAnimationFrame(animationLoop);
