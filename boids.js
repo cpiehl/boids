@@ -3,17 +3,40 @@
 let width = 150;
 let height = 150;
 
+const DRAW_TRAIL = false;
+
 let lastTimestamp = 0;
 
 const numBoids = 500;
-const visualRange = 75;
+const numBigBoids = 1;
+const visualRange = 75;  // The distance that boids will start to flock
 const visualRange2 = visualRange * visualRange;
 
+const centeringFactor = 0.005; // adjust velocity by this %
+const minDistance2 = 400; // The distance to stay away from other boids squared
+const avoidFactor = 0.02; // Adjust velocity by this %
+const predatorDistance2 = 10000; // The distance to stay away from predator boids squared
+const matchingFactor = 0.05; // Adjust by this % of average velocity
+const speedLimit = 15;
+
+const margin = 100; // The distance from edge of screen to turn around
+const turnFactor = 0.5; // How fast to turn around
+
 var boids = [];
+var bigboids = [];
 
 function initBoids() {
   for (var i = 0; i < numBoids; i += 1) {
     boids[boids.length] = {
+      x: Math.random() * width,
+      y: Math.random() * height,
+      dx: Math.random() * 10 - 5,
+      dy: Math.random() * 10 - 5,
+      history: [],
+    };
+  }
+  for (var i = 0; i < numBigBoids; i += 1) {
+    bigboids[bigboids.length] = {
       x: Math.random() * width,
       y: Math.random() * height,
       dx: Math.random() * 10 - 5,
@@ -55,8 +78,6 @@ function sizeCanvas() {
 // Constrain a boid to within the window. If it gets too close to an edge,
 // nudge it back in and reverse its direction.
 function keepWithinBounds(boid) {
-  const margin = 200;
-  const turnFactor = 1;
 
   if (boid.x < margin) {
     boid.dx += turnFactor;
@@ -74,15 +95,14 @@ function keepWithinBounds(boid) {
 
 // Find the center of mass of the other boids and adjust velocity slightly to
 // point towards the center of mass.
-function flyTowardsCenter(boid) {
-  const centeringFactor = 0.005; // adjust velocity by this %
+function flyTowardsCenter(boid, range2) {
 
   let centerX = 0;
   let centerY = 0;
   let numNeighbors = 0;
 
   for (let otherBoid of boids) {
-    if (distance2(boid, otherBoid) < visualRange2) {
+    if (distance2(boid, otherBoid) < range2) {
       centerX += otherBoid.x;
       centerY += otherBoid.y;
       numNeighbors += 1;
@@ -100,8 +120,6 @@ function flyTowardsCenter(boid) {
 
 // Move away from other boids that are too close to avoid colliding
 function avoidOthers(boid) {
-  const minDistance2 = 400; // The distance to stay away from other boids
-  const avoidFactor = 0.05; // Adjust velocity by this %
   let moveX = 0;
   let moveY = 0;
   for (let otherBoid of boids) {
@@ -117,10 +135,23 @@ function avoidOthers(boid) {
   boid.dy += moveY * avoidFactor;
 }
 
+function avoidPredator(boid) {
+  let moveX = 0;
+  let moveY = 0;
+  for (let bigboid of bigboids) {
+    if (distance2(boid, bigboid) < predatorDistance2) {
+      moveX += boid.x - bigboid.x;
+      moveY += boid.y - bigboid.y;
+    }
+  }
+
+  boid.dx += moveX * avoidFactor;
+  boid.dy += moveY * avoidFactor;
+}
+
 // Find the average velocity (speed and direction) of the other boids and
 // adjust velocity slightly to match.
 function matchVelocity(boid) {
-  const matchingFactor = 0.05; // Adjust by this % of average velocity
 
   let avgDX = 0;
   let avgDY = 0;
@@ -146,7 +177,6 @@ function matchVelocity(boid) {
 // Speed will naturally vary in flocking behavior, but real animals can't go
 // arbitrarily fast.
 function limitSpeed(boid) {
-  const speedLimit = 15;
 
   const speed = Math.sqrt(boid.dx * boid.dx + boid.dy * boid.dy);
   if (speed > speedLimit) {
@@ -155,14 +185,13 @@ function limitSpeed(boid) {
   }
 }
 
-const DRAW_TRAIL = false;
-
-function drawBoid(ctx, boid) {
+function drawBoid(ctx, boid, color) {
+  if (!color) color = "#558cf4";
   const angle = Math.atan2(boid.dy, boid.dx);
   ctx.translate(boid.x, boid.y);
   ctx.rotate(angle);
   ctx.translate(-boid.x, -boid.y);
-  ctx.fillStyle = "#558cf4";
+  ctx.fillStyle = color;
   ctx.beginPath();
   ctx.moveTo(boid.x, boid.y);
   ctx.lineTo(boid.x - 15, boid.y + 5);
@@ -194,8 +223,9 @@ function animationLoop(timestamp) {
   // Update each boid
   for (let boid of boids) {
     // Update the velocities according to each rule
-    flyTowardsCenter(boid);
+    flyTowardsCenter(boid, visualRange2);
     avoidOthers(boid);
+    avoidPredator(boid);
     matchVelocity(boid);
     limitSpeed(boid);
     keepWithinBounds(boid);
@@ -207,10 +237,22 @@ function animationLoop(timestamp) {
       boid.history.push([boid.x, boid.y])
       boid.history = boid.history.slice(-50);
     }
+
+    drawBoid(ctx, boid);
   }
 
-  for (let boid of boids) {
-    drawBoid(ctx, boid);
+  for (let bigboid of bigboids) {
+    flyTowardsCenter(bigboid, 4 * visualRange2);
+    matchVelocity(bigboid);
+    limitSpeed(bigboid);
+    keepWithinBounds(bigboid);
+    bigboid.x += bigboid.dx;
+    bigboid.y += bigboid.dy;
+    if (DRAW_TRAIL) {
+      bigboid.history.push([bigboid.x, bigboid.y])
+      bigboid.history = bigboid.history.slice(-50);
+    }
+    drawBoid(ctx, bigboid, "red");
   }
 
   ctx.fillStyle = "white";
