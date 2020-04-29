@@ -4,11 +4,10 @@ let width = 150;
 let height = 150;
 
 let lastTimestamp = 0;
-let timestampCount = 0;
-let timestampCountMax = 10; // Average over this many frames
 
 const numBoids = 500;
 const visualRange = 75;
+const visualRange2 = visualRange * visualRange;
 
 var boids = [];
 
@@ -24,11 +23,13 @@ function initBoids() {
   }
 }
 
+function distance2(boid1, boid2) {
+  return (boid1.x - boid2.x) * (boid1.x - boid2.x) +
+  (boid1.y - boid2.y) * (boid1.y - boid2.y);
+}
+
 function distance(boid1, boid2) {
-  return Math.sqrt(
-    (boid1.x - boid2.x) * (boid1.x - boid2.x) +
-    (boid1.y - boid2.y) * (boid1.y - boid2.y)
-  );
+  return Math.sqrt(distance2(boid1, boid2));
 }
 
 // TODO: This is naive and inefficient.
@@ -36,7 +37,7 @@ function nClosestBoids(boid, n) {
   // Make a copy
   const sorted = boids.slice();
   // Sort the copy by distance from `boid`
-  sorted.sort((a, b) => distance(boid, a) - distance(boid, b));
+  sorted.sort((a, b) => distance2(boid, a) - distance2(boid, b));
   // Return the `n` closest
   return sorted.slice(1, n + 1);
 }
@@ -81,7 +82,7 @@ function flyTowardsCenter(boid) {
   let numNeighbors = 0;
 
   for (let otherBoid of boids) {
-    if (distance(boid, otherBoid) < visualRange) {
+    if (distance2(boid, otherBoid) < visualRange2) {
       centerX += otherBoid.x;
       centerY += otherBoid.y;
       numNeighbors += 1;
@@ -99,13 +100,13 @@ function flyTowardsCenter(boid) {
 
 // Move away from other boids that are too close to avoid colliding
 function avoidOthers(boid) {
-  const minDistance = 20; // The distance to stay away from other boids
+  const minDistance2 = 400; // The distance to stay away from other boids
   const avoidFactor = 0.05; // Adjust velocity by this %
   let moveX = 0;
   let moveY = 0;
   for (let otherBoid of boids) {
     if (otherBoid !== boid) {
-      if (distance(boid, otherBoid) < minDistance) {
+      if (distance2(boid, otherBoid) < minDistance2) {
         moveX += boid.x - otherBoid.x;
         moveY += boid.y - otherBoid.y;
       }
@@ -126,7 +127,7 @@ function matchVelocity(boid) {
   let numNeighbors = 0;
 
   for (let otherBoid of boids) {
-    if (distance(boid, otherBoid) < visualRange) {
+    if (distance2(boid, otherBoid) < visualRange2) {
       avgDX += otherBoid.dx;
       avgDY += otherBoid.dy;
       numNeighbors += 1;
@@ -186,6 +187,10 @@ function animationLoop(timestamp) {
   var duration = timestamp - lastTimestamp;
   lastTimestamp = timestamp;
 
+  // Clear the canvas and redraw all the boids in their current positions
+  const ctx = document.getElementById("boids").getContext("2d");
+  ctx.clearRect(0, 0, width, height);
+
   // Update each boid
   for (let boid of boids) {
     // Update the velocities according to each rule
@@ -198,20 +203,19 @@ function animationLoop(timestamp) {
     // Update the position based on the current velocity
     boid.x += boid.dx;
     boid.y += boid.dy;
-    boid.history.push([boid.x, boid.y])
-    boid.history = boid.history.slice(-50);
+    if (DRAW_TRAIL) {
+      boid.history.push([boid.x, boid.y])
+      boid.history = boid.history.slice(-50);
+    }
   }
 
-  // Clear the canvas and redraw all the boids in their current positions
-  const ctx = document.getElementById("boids").getContext("2d");
-  ctx.clearRect(0, 0, width, height);
   for (let boid of boids) {
     drawBoid(ctx, boid);
   }
+
   ctx.fillStyle = "white";
   ctx.font = "30px Consolas";
   ctx.fillText(`FPS: ${(1000/duration).toFixed(2)}`, 10, 50);
-  // ctx.fillText(`AVG: ${averageFPS().toFixed(2)}`, 10, 100);
 
   // Schedule the next frame
   window.requestAnimationFrame(animationLoop);
